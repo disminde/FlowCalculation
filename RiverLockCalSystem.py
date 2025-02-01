@@ -12,6 +12,7 @@ import os
 import csv
 import math
 
+
 def load_json_files():
     json_files = [f for f in os.listdir() if f.endswith('.json')]
     return json_files
@@ -27,15 +28,15 @@ def update_result_label(result_text):
             result_text_widget.insert(tk.END, line + '\n')
 
 def update_state_label(flow_rates_text):
-    flow_rates_text_widget.delete("1.0", tk.END)
+    flow_text_widget.delete("1.0", tk.END)
 
     lines = flow_rates_text.split('\n')
     for line in lines:
         if "堰流下泄流量" in line or "孔流下泄流量" in line:
             # result_text_widget.insert(tk.END, line + '\n', 'large_font')
-            flow_rates_text_widget.insert(tk.END, line+'\n', 'large_font')
+            flow_text_widget.insert(tk.END, line+'\n', 'large_font')
         else:
-            flow_rates_text_widget.insert(tk.END, line + '\n')
+            flow_text_widget.insert(tk.END, line + '\n')
 
 def load_config_data(file_name):
     with open(file_name, 'r') as file:
@@ -273,102 +274,251 @@ def enable_inputs():
     entry_Qt.config(state='normal')
     entry_n.config(state='normal')
     entry_e.config(state='normal')
-    calculate_button.config(state='normal')
-    batch_process_button.config(state='normal')
+    calculate_btn.config(state='normal')
+    batch_btn.config(state='normal')
+
+#____________________________________________________________________________
+
+config_data = None
+holeSubmergeCoefficient = None
+
+
+def show_readme_window():
+    """弹出窗口，显示 readme.txt 的内容"""
+    try:
+        with open("readme.txt", "r", encoding="utf-8") as file:
+            readme_content = file.read()
+    except FileNotFoundError:
+        readme_content = "未找到 readme.txt 文件！"
+
+    # 创建新窗口
+    readme_window = tk.Toplevel(root)
+    readme_window.title("README 文件")
+    readme_window.geometry("600x400")
+
+    # 创建文本显示框
+    text_widget = tk.Text(readme_window, wrap="word", font=("Consolas", 12))
+    text_widget.pack(expand=True, fill="both", padx=10, pady=10)
+
+    # 插入 README 内容
+    text_widget.insert("1.0", readme_content)
+    text_widget.config(state="disabled")  # 禁止编辑
+
+def configure_styles():
+    bg_color = "#F8F9FA"
+    card_color = "#FFFFFF"
+    accent_color = "#2A73FF"
+    text_primary = "#2D3436"
+    text_secondary = "#636E72"
+    shadow_color = "#E0E0E0"
+
+    style = ttk.Style()
+    style.theme_use('clam')
+
+    # 基础样式
+    style.configure(".", background=bg_color, foreground=text_primary)
+    style.configure("TFrame", background=bg_color,borderwidth=0, relief="flat")
+    style.configure("Card.TFrame", background=card_color, borderwidth=0, relief="flat")
+    style.configure("TLabel", font=("Segoe UI", 11), background=bg_color,borderwidth=0, relief="flat")
+    style.configure("TButton", font=("Segoe UI", 11, "bold"), borderwidth=0, relief="flat")
+    style.configure("TEntry", fieldbackground=card_color, borderwidth=0, relief="flat")
+
+    # 自定义样式
+    style.configure("Title.TLabel",
+                    font=("Segoe UI", 24, "bold"),
+                    foreground=accent_color,
+                    anchor="center")
+
+    style.configure("ResultText.TLabel",
+                    font=("Consolas", 10),
+                    background=card_color,
+                    padding=5)
+
+class CanvasButton(tk.Canvas):
+    def __init__(self, master=None, text="", command=None, radius=10, bg_color="#1E90FF", fg_color="#000000", hover_color="#1C86EE", shadow_color="#888888", width=100, height=40, **kwargs):
+        super().__init__(master, **kwargs)
+        self.command = command
+        self.radius = radius
+        self.bg_color = bg_color
+        self.fg_color = fg_color
+        self.hover_color = hover_color
+        self.shadow_color = shadow_color
+        self.text = text
+        self.width = width
+        self.height = height
+        self.configure(width=width, height=height, highlightthickness=0)  # 设置 Canvas 的尺寸
+        self.bind("<Enter>", self.on_enter)
+        self.bind("<Leave>", self.on_leave)
+        self.bind("<Button-1>", self.on_click)
+        self.bind("<Configure>", self.resize)
+        self.draw_button()
+
+    def draw_button(self):
+        self.delete("all")
+        width = self.winfo_width()  # 动态获取宽度
+        height = self.winfo_height()  # 动态获取高度
+
+        # 绘制阴影
+        self.create_rectangle(
+            self.radius, self.radius, width, height,
+            fill=self.shadow_color, outline=self.shadow_color, tags="shadow"
+        )
+
+        # 绘制圆角矩形
+        self.create_round_rect(
+            0, 0, width - self.radius, height - self.radius,
+            radius=self.radius, fill=self.bg_color, outline=self.bg_color, tags="button"
+        )
+
+        # 添加文本
+        self.create_text(
+            width // 2, height // 2,
+            text=self.text, fill=self.fg_color, font=font.Font(family="Segoe UI", size=12, weight="bold"), tags="text"
+        )
+
+    def create_round_rect(self, x1, y1, x2, y2, radius=10, **kwargs):
+        points = [
+            x1 + radius, y1,
+            x2 - radius, y1,
+            x2, y1,
+            x2, y1 + radius,
+            x2, y2 - radius,
+            x2, y2,
+            x2 - radius, y2,
+            x1 + radius, y2,
+            x1, y2,
+            x1, y2 - radius,
+            x1, y1 + radius,
+            x1, y1,
+            x1 + radius, y1
+        ]
+        return self.create_polygon(points, **kwargs, smooth=True)
+
+    def on_enter(self, event):
+        self.itemconfig("button", fill=self.hover_color)
+        self.itemconfig("text", fill=self.fg_color)
+
+    def on_leave(self, event):
+        self.itemconfig("button", fill=self.bg_color)
+        self.itemconfig("text", fill=self.fg_color)
+
+    def on_click(self, event):
+        if self.command:
+            self.command()
+
+    def resize(self, event):
+        """调整 CanvasButton 的大小以填满布局单元格"""
+        self.width = event.width
+        self.height = event.height
+        self.draw_button()
+
+def display_config_data(config_data):
+    formatted_text = json.dumps(config_data, indent=2, ensure_ascii=False)
+    config_text.config(state="normal")
+    config_text.delete("1.0", tk.END)
+    config_text.insert(tk.END, formatted_text)
+    config_text.config(state="disabled")
+
+
+def enable_controls():
+    entry_H1.config(state="normal")
+    entry_H2.config(state="normal")
+    entry_Qt.config(state="normal")
+    entry_n.config(state="normal")
+    entry_e.config(state="normal")
+    calculate_btn.config(state="normal")
+    batch_btn.config(state="normal")
+
 
 root = tk.Tk()
-root.title("Water Flow Calculation\n@disminder-v0.0.5")
+root.title("Water Flow Calculation\n@disminder-v0.0.8")
+root.geometry("2560x1440")
+root.minsize(1200, 700)
+configure_styles()
 
-large_font = font.Font(family="Arial", size=24, weight="bold")
+main_frame = ttk.Frame(root)
+main_frame.pack(expand=True, fill="both", padx=20, pady=20)
 
-style = ttk.Style()
-style.configure("TFrame", background="#f0f0f0")
-style.configure("TLabel", background="#f0f0f0", font=("Arial", 10))
-style.configure("TButton", background="#4CAF50", foreground="black", font=("Arial", 10, "bold"))
-style.map("TButton", background=[("active", "#45a049")])
+# 三列布局体系
+main_frame.columnconfigure(0, weight=3)  # 输入区
+main_frame.columnconfigure(1, weight=1)  # 间隔
+main_frame.columnconfigure(2, weight=1)  # 配置区
+main_frame.rowconfigure(0, weight=0)  # 标题
+main_frame.rowconfigure(1, weight=2)  # 主内容
+main_frame.rowconfigure(2, weight=1)  # 结果
 
-frame = ttk.Frame(root, padding="10")
-frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+# 标题区
+title_frame = ttk.Frame(main_frame, style="Card.TFrame")
+title_frame.grid(column=0, row=0, columnspan=3, sticky="ew", pady=(0, 20))
+ttk.Label(title_frame, text="水利工程流量计算系统\nWater Flow Calculation System",
+          style="Title.TLabel").pack(pady=15)
 
-title_label = ttk.Label(frame, text="Water Flow Calculation\n水利流量计算工具", font=("Arial", 16, "bold"))
-title_label.grid(column=1, row=0, columnspan=2, pady=10)
+# 输入卡片
+input_card = ttk.Frame(main_frame, style="Card.TFrame", padding=20)
+input_card.grid(column=0, row=1, sticky="nsew", padx=10)
+input_card.columnconfigure(1, weight=1)
 
-ttk.Label(frame, text="Select JSON File:").grid(column=1, row=1, sticky=tk.W)
-json_files = load_json_files()
-file_combobox = ttk.Combobox(frame, values=json_files)
-file_combobox.grid(column=2, row=1, sticky=(tk.W, tk.E))
-file_combobox.bind("<<ComboboxSelected>>", on_file_select)
+# 文件选择
+ttk.Label(input_card, text="选择配置文件:").grid(row=0, column=0, sticky="w")
+file_combobox = ttk.Combobox(input_card, values=load_json_files(), width=25)
+file_combobox.grid(row=0, column=1, pady=10, sticky="ew")
+file_combobox.bind("<<ComboboxSelected>>", lambda e: on_file_select(file_combobox.get()))
 
-input_frame = ttk.Frame(frame, padding="10")
-input_frame.grid(column=1, row=2, columnspan=2, pady=10)
+# 输入字段
+fields = [
+    ("H1 (上游水头):", entry_H1 := ttk.Entry(input_card)),
+    ("H2 (下游水头):", entry_H2 := ttk.Entry(input_card)),
+    ("Qt (调试目标):", entry_Qt := ttk.Entry(input_card)),
+    ("n (开启孔数):", entry_n := ttk.Entry(input_card)),
+    ("e (开启高度):", entry_e := ttk.Entry(input_card))
+]
 
-ttk.Label(input_frame, text="H1:").grid(column=1, row=0, sticky=tk.W)
-entry_H1 = ttk.Entry(input_frame, state='disabled')
-entry_H1.grid(column=2, row=0, sticky=(tk.W, tk.E))
+for idx, (label, entry) in enumerate(fields, start=1):
+    ttk.Label(input_card, text=label).grid(row=idx, column=0, sticky="w", pady=5)
+    entry.grid(row=idx, column=1, sticky="ew", pady=5)
+    entry.config(state="disabled")
 
-ttk.Label(input_frame, text="H2:").grid(column=1, row=1, sticky=tk.W)
-entry_H2 = ttk.Entry(input_frame, state='disabled')
-entry_H2.grid(column=2, row=1, sticky=(tk.W, tk.E))
+# 操作按钮
+btn_frame = ttk.Frame(input_card)
+btn_frame.grid(row=6, column=0, columnspan=2, pady=20, sticky="ew")
 
-ttk.Label(input_frame, text="Qt:").grid(column=1, row=2, sticky=tk.W)
-entry_Qt = ttk.Entry(input_frame, state='disabled')
-entry_Qt.grid(column=2, row=2, sticky=(tk.W, tk.E))
+calculate_btn = CanvasButton(btn_frame, text="开始计算", command=calculate,
+                             width=180, height=45, bg_color="#2A73FF")
+calculate_btn.pack(side="left", padx=10)
 
-ttk.Label(input_frame, text="n:").grid(column=1, row=3, sticky=tk.W)
-entry_n = ttk.Entry(input_frame, state='disabled')
-entry_n.grid(column=2, row=3, sticky=(tk.W, tk.E))
+batch_btn = CanvasButton(btn_frame, text="批量处理", command=select_file,
+                         width=180, height=45, bg_color="#2A73FF")
+batch_btn.pack(side="left", padx=10)
+batch_btn.config(state="disabled")
 
-ttk.Label(input_frame, text="e:").grid(column=1, row=4, sticky=tk.W)
-entry_e = ttk.Entry(input_frame, state='disabled')
-entry_e.grid(column=2, row=4, sticky=(tk.W, tk.E))
+readme_btn = ttk.Button(main_frame, text="查看使用手册", command=show_readme_window)
+readme_btn.grid(column=1, row=1, padx=10, pady=10)
 
-batch_process_button = ttk.Button(input_frame, text="Select File to Batch Process", command=select_file, state='disabled')
-batch_process_button.grid(column=3, row=0, rowspan=5, padx=5, ipady=40)
+# 结果展示区
+result_frame = ttk.Frame(main_frame, style="Card.TFrame", padding=15)
+result_frame.grid(column=0, row=2, columnspan=2, sticky="nsew", pady=10)
 
-calculate_button = ttk.Button(frame, text="Calculate", command=calculate, state='disabled')
-calculate_button.grid(column=1, row=3, columnspan=2, pady=10)
+flow_text_widget = tk.Text(result_frame, wrap=tk.WORD, height=6,
+                      font=("Consolas", 20), bg="white")
+flow_text_widget.pack(expand=True, fill="both")
+flow_text_widget.tag_configure('highlight', font=("微软雅黑", 20, "bold"), foreground="#2A73FF")
 
-result_frame = ttk.Frame(frame, padding="10")
-result_frame.grid(column=1, row=4, columnspan=2, pady=10, sticky=(tk.W, tk.E, tk.N, tk.S))
+result_text_widget = tk.Text(result_frame, wrap=tk.WORD, height=12,
+                      font=("Consolas", 20), bg="white")
+result_text_widget.pack(expand=True, fill="both")
+result_text_widget.tag_configure('highlight', font=("微软雅黑", 20, "bold"), foreground="#2A73FF")
 
-flow_rates_text_widget = tk.Text(result_frame, wrap="word", width=50, height=5)
-flow_rates_text_widget.grid(column=1, row=0, sticky=(tk.W, tk.E))
+# 配置信息区
+config_card = ttk.Frame(main_frame, style="Card.TFrame", padding=15)
+config_card.grid(column=2, row=1, rowspan=2, sticky="nsew", padx=10)
 
-result_text_widget = tk.Text(result_frame, wrap="word", width=50, height=20)
-result_text_widget.grid(column=1, row=1, sticky=(tk.W, tk.E))
+ttk.Label(config_card, text="当前配置详情",
+          font=("Segoe UI", 12, "bold")).pack(anchor="w")
 
-result_text_widget.tag_configure('large_font', font=large_font)
-flow_rates_text_widget.tag_configure('large_font', font=large_font)
-
-config_frame = ttk.Frame(frame, padding="10")
-config_frame.grid(column=3, row=0, rowspan=5, padx=10, pady=10, sticky=(tk.N, tk.S, tk.W, tk.E))
-
-config_canvas = tk.Canvas(config_frame, background="#ffffff")
-config_scrollbar = ttk.Scrollbar(config_frame, orient="vertical", command=config_canvas.yview)
-config_scrollable_frame = ttk.Frame(config_canvas, padding="5", relief="solid")
-
-config_scrollable_frame.bind(
-    "<Configure>",
-    lambda e: (config_canvas.configure(
-        scrollregion=config_canvas.bbox("all")
-    ), config_canvas.itemconfig("frame", width=config_canvas.winfo_width()))
-)
-
-config_canvas.create_window((0, 0), window=config_scrollable_frame, anchor="nw", tags="frame")
-config_canvas.configure(yscrollcommand=config_scrollbar.set)
-
-config_info_label = ttk.Label(config_scrollable_frame, text="配置文件信息：", anchor="nw", justify="left", font=("Arial", 12, "bold"))
-config_info_label.grid(column=0, row=0, sticky=(tk.W, tk.E, tk.N, tk.S))
-
-config_canvas.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
-config_scrollbar.grid(row=0, column=1, sticky=(tk.N, tk.S))
-
-config_label = ttk.Label(config_scrollable_frame, text="", anchor="nw", justify="left")
-config_label.grid(column=0, row=1, sticky=(tk.W, tk.E, tk.N, tk.S))
-
-frame.rowconfigure(0, weight=1)
-frame.columnconfigure(3, weight=1)
-config_frame.rowconfigure(0, weight=1)
-config_frame.columnconfigure(0, weight=1)
+config_text = tk.Text(config_card, wrap=tk.WORD, height=25,
+                      font=("Consolas", 9), bg="white")
+config_text.pack(expand=True, fill="both")
+config_text.insert(tk.END, "请选择配置文件查看详细信息")
+config_text.config(state="disabled")
 
 root.mainloop()
