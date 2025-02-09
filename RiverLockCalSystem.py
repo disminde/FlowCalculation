@@ -131,7 +131,7 @@ def calculate():
 
     if flowstate == 1:
         flow_rates_text = (
-            f"鉴定为堰流;"
+            f"鉴定为堰流;\n"
             f"是否淹没: {'是' if isWeirSubmerge else '否'}\n"
             f"堰流下泄流量: {Qq:.2f}\n"
             f"理想闸门开高: {e0:.2f}\n"
@@ -160,6 +160,8 @@ def calculate():
             f"流量偏差: {deltaQ:.2f}\n"
             f"理想闸门开高: {e0:.2f}\n"
         )
+
+        VIPMessage = f"下泄流量: {Qq:.2f}\n"
     else:
         result_text = (
             f"鉴定为孔流;"
@@ -170,7 +172,9 @@ def calculate():
             f"理想闸门开高: {e0:.2f}\n"
         )
 
-    result_text += (
+        VIPMessage = f"下泄流量: {Q:.2f}\n"
+
+    result_text += (f""
         f"---------------------------------------\n"
         f"h (闸上实测水头): {h:.2f}\n"
         f"h1 (上下游水位差): {h1:.2f}\n"
@@ -179,10 +183,18 @@ def calculate():
         f"H (总水头): {H:.2f}\n"
     )
 
+
     update_result_label(result_text)
+
+    # 清空 Discharge_flow_down_the_hole 文本框，并插入 VIPMessage
+    Discharge_flow_down_the_hole.delete("1.0", tk.END)  # 清空文本框
+    Discharge_flow_down_the_hole.insert(tk.END, VIPMessage)  # 插入 VIPMessage
+
     # result_text_widget.delete("1.0", tk.END)
     # result_text_widget.insert(tk.END, result_text)
-    return result_text
+
+    final_result = (result_text, VIPMessage)
+    return final_result
 
 def on_file_select(event):
     selected_file = file_combobox.get()
@@ -297,7 +309,7 @@ def show_readme_window():
     readme_window.geometry("600x400")
 
     # 创建文本显示框
-    text_widget = tk.Text(readme_window, wrap="word", font=("Consolas", 12))
+    text_widget = tk.Text(readme_window, wrap="word", font=("Consolas", 12),bg="#F0F0F0")
     text_widget.pack(expand=True, fill="both", padx=10, pady=10)
 
     # 插入 README 内容
@@ -305,7 +317,7 @@ def show_readme_window():
     text_widget.config(state="disabled")  # 禁止编辑
 
 def configure_styles():
-    bg_color = "#F8F9FA"
+    bg_color = "#F0F0F0"
     card_color = "#FFFFFF"
     accent_color = "#2A73FF"
     text_primary = "#2D3436"
@@ -318,10 +330,10 @@ def configure_styles():
     # 基础样式
     style.configure(".", background=bg_color, foreground=text_primary)
     style.configure("TFrame", background=bg_color,borderwidth=0, relief="flat")
-    style.configure("Card.TFrame", background=card_color, borderwidth=0, relief="flat")
+    style.configure("Card.TFrame", background=bg_color, borderwidth=0, relief="flat")
     style.configure("TLabel", font=("Segoe UI", 11), background=bg_color,borderwidth=0, relief="flat")
     style.configure("TButton", font=("Segoe UI", 11, "bold"), borderwidth=0, relief="flat")
-    style.configure("TEntry", fieldbackground=card_color, borderwidth=0, relief="flat")
+    style.configure("TEntry", fieldbackground=bg_color, borderwidth=0, relief="flat")
 
     # 自定义样式
     style.configure("Title.TLabel",
@@ -335,7 +347,7 @@ def configure_styles():
                     padding=5)
 
 class CanvasButton(tk.Canvas):
-    def __init__(self, master=None, text="", command=None, radius=10, bg_color="#1E90FF", fg_color="#000000", hover_color="#1C86EE", shadow_color="#888888", width=100, height=40, **kwargs):
+    def __init__(self, master=None, text="", command=None, radius=10, bg_color="#D3D3D3", fg_color="#000000", hover_color="#1C86EE", shadow_color="#888888", width=100, height=40, **kwargs):
         super().__init__(master, **kwargs)
         self.command = command
         self.radius = radius
@@ -350,6 +362,7 @@ class CanvasButton(tk.Canvas):
         self.bind("<Enter>", self.on_enter)
         self.bind("<Leave>", self.on_leave)
         self.bind("<Button-1>", self.on_click)
+        self.bind("<Configure>", self.resize)
         self.bind("<Configure>", self.resize)
         self.draw_button()
 
@@ -429,96 +442,136 @@ def enable_controls():
     calculate_btn.config(state="normal")
     batch_btn.config(state="normal")
 
+def disable_selection(event):
+    return "break"
 
 root = tk.Tk()
-root.title("Water Flow Calculation\n@disminder-v0.0.8")
-root.geometry("2560x1440")
-root.minsize(1200, 700)
+root.title("Water Flow Calculation\n")
+root.geometry("1000x720")
+root.minsize(400, 300)
 configure_styles()
 
 main_frame = ttk.Frame(root)
 main_frame.pack(expand=True, fill="both", padx=20, pady=20)
 
-# 三列布局体系
-main_frame.columnconfigure(0, weight=3)  # 输入区
-main_frame.columnconfigure(1, weight=1)  # 间隔
-main_frame.columnconfigure(2, weight=1)  # 配置区
-main_frame.rowconfigure(0, weight=0)  # 标题
-main_frame.rowconfigure(1, weight=2)  # 主内容
-main_frame.rowconfigure(2, weight=1)  # 结果
+# 设置主区域为三列三行布局
+main_frame.columnconfigure(0, weight=1)
+main_frame.columnconfigure(1, weight=0)
+main_frame.columnconfigure(2, weight=6)
+main_frame.rowconfigure(0, weight=0)  # 第一行：标题及按钮
+main_frame.rowconfigure(1, weight=0)  # 第二行：文件选择、配置区、输入字段
+main_frame.rowconfigure(2, weight=0)  # 第三行：结果显示区
 
-# 标题区
+# ============ 第一行（row 0） ============
+# 标题区域：放在第一行左侧两列（col 0 和 col 1 合并）
 title_frame = ttk.Frame(main_frame, style="Card.TFrame")
-title_frame.grid(column=0, row=0, columnspan=3, sticky="ew", pady=(0, 20))
-ttk.Label(title_frame, text="水利工程流量计算系统\nWater Flow Calculation System",
+title_frame.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 20))
+ttk.Label(title_frame,
+          text="水利工程流量计算系统\nWater Flow Calculation System",
           style="Title.TLabel").pack(pady=15)
 
-# 输入卡片
-input_card = ttk.Frame(main_frame, style="Card.TFrame", padding=20)
-input_card.grid(column=0, row=1, sticky="nsew", padx=10)
-input_card.columnconfigure(1, weight=1)
+# 操作按钮区域：放在第一行第三列（col 2）
+btn_frame_top = ttk.Frame(main_frame)
+btn_frame_top.grid(row=0, column=2, sticky="ew", padx=10, pady=10)
 
-# 文件选择
-ttk.Label(input_card, text="选择配置文件:").grid(row=0, column=0, sticky="w")
-file_combobox = ttk.Combobox(input_card, values=load_json_files(), width=25)
-file_combobox.grid(row=0, column=1, pady=10, sticky="ew")
-file_combobox.bind("<<ComboboxSelected>>", lambda e: on_file_select(file_combobox.get()))
-
-# 输入字段
-fields = [
-    ("H1 (上游水头):", entry_H1 := ttk.Entry(input_card)),
-    ("H2 (下游水头):", entry_H2 := ttk.Entry(input_card)),
-    ("Qt (调试目标):", entry_Qt := ttk.Entry(input_card)),
-    ("n (开启孔数):", entry_n := ttk.Entry(input_card)),
-    ("e (开启高度):", entry_e := ttk.Entry(input_card))
-]
-
-for idx, (label, entry) in enumerate(fields, start=1):
-    ttk.Label(input_card, text=label).grid(row=idx, column=0, sticky="w", pady=5)
-    entry.grid(row=idx, column=1, sticky="ew", pady=5)
-    entry.config(state="disabled")
-
-# 操作按钮
-btn_frame = ttk.Frame(input_card)
-btn_frame.grid(row=6, column=0, columnspan=2, pady=20, sticky="ew")
-
-calculate_btn = CanvasButton(btn_frame, text="开始计算", command=calculate,
-                             width=180, height=45, bg_color="#2A73FF")
-calculate_btn.pack(side="left", padx=10)
-
-batch_btn = CanvasButton(btn_frame, text="批量处理", command=select_file,
-                         width=180, height=45, bg_color="#2A73FF")
+# “批量处理”按钮
+batch_btn = ttk.Button(btn_frame_top, text="批量处理", command=select_file)
 batch_btn.pack(side="left", padx=10)
 batch_btn.config(state="disabled")
 
-readme_btn = ttk.Button(main_frame, text="查看使用手册", command=show_readme_window)
-readme_btn.grid(column=1, row=1, padx=10, pady=10)
+# “查看使用手册”按钮
+readme_btn = ttk.Button(btn_frame_top, text="查看使用手册", command=show_readme_window)
+readme_btn.pack(side="left", padx=10)
 
-# 结果展示区
-result_frame = ttk.Frame(main_frame, style="Card.TFrame", padding=15)
-result_frame.grid(column=0, row=2, columnspan=2, sticky="nsew", pady=10)
+# ============ 第二行（row 1） ============
 
-flow_text_widget = tk.Text(result_frame, wrap=tk.WORD, height=6,
-                      font=("Consolas", 20), bg="white")
-flow_text_widget.pack(expand=True, fill="both")
-flow_text_widget.tag_configure('highlight', font=("微软雅黑", 20, "bold"), foreground="#2A73FF")
+config_input_frame = ttk.Frame(main_frame, style="Card.TFrame", padding=15)
+config_input_frame.grid(row=1, column=0, rowspan=2, sticky="nsew", padx=10, pady=10)
+config_input_frame.columnconfigure(1, weight=1)
 
-result_text_widget = tk.Text(result_frame, wrap=tk.WORD, height=12,
-                      font=("Consolas", 20), bg="white")
-result_text_widget.pack(expand=True, fill="both")
-result_text_widget.tag_configure('highlight', font=("微软雅黑", 20, "bold"), foreground="#2A73FF")
+# 文件选择部分（原先在 input_card 内）
+ttk.Label(config_input_frame, text="选择配置文件:").grid(row=0, column=0, sticky="w", pady=5)
+file_combobox = ttk.Combobox(config_input_frame, values=load_json_files(), width=2)
+file_combobox.grid(row=0, column=1, pady=10, sticky="ew")
+file_combobox.bind("<<ComboboxSelected>>", lambda e: on_file_select(file_combobox.get()))
 
-# 配置信息区
-config_card = ttk.Frame(main_frame, style="Card.TFrame", padding=15)
-config_card.grid(column=2, row=1, rowspan=2, sticky="nsew", padx=10)
+ttk.Label(config_input_frame, text="当前配置详情", font=("Segoe UI", 12, "bold")).grid(row=1, column=0, columnspan=2, sticky="w", pady=5)
 
-ttk.Label(config_card, text="当前配置详情",
-          font=("Segoe UI", 12, "bold")).pack(anchor="w")
 
-config_text = tk.Text(config_card, wrap=tk.WORD, height=25,
-                      font=("Consolas", 9), bg="white")
-config_text.pack(expand=True, fill="both")
+config_text = tk.Text(config_input_frame, wrap=tk.WORD, height=25, font=("Consolas", 9), bg="#F0F0F0",width=2)
+config_text.grid(row=2, column=0, columnspan=2, sticky="nsew")
 config_text.insert(tk.END, "请选择配置文件查看详细信息")
 config_text.config(state="disabled")
+
+config_text.bind("<Button-1>", disable_selection)  # 禁止鼠标点击
+config_text.bind("<B1-Motion>", disable_selection)  # 禁止鼠标拖动选中
+config_text.bind("<Control-a>", disable_selection)  # 禁止 Ctrl + A 选中全部
+config_text.bind("<Key>", disable_selection)  # 禁止键盘输入
+
+# 右侧单元格（col 2）：输入字段区域（移动自原 input_card 内除文件选择部分之外的内容）
+input_fields_frame = ttk.Frame(main_frame, style="Card.TFrame", padding=20)
+input_fields_frame.grid(row=1, column=2, sticky="nsew", padx=10)
+input_fields_frame.columnconfigure(1, weight=1)
+
+style = ttk.Style()
+style.configure("White.TEntry", fieldbackground="white")
+
+# 输入字段
+fields = [
+    ("H1 (上游水头):", entry_H1 := ttk.Entry(input_fields_frame, style="White.TEntry")),
+    ("H2 (下游水头):", entry_H2 := ttk.Entry(input_fields_frame, style="White.TEntry")),
+    ("Qt (调试目标):", entry_Qt := ttk.Entry(input_fields_frame, style="White.TEntry")),
+    ("n (开启孔数):", entry_n := ttk.Entry(input_fields_frame, style="White.TEntry")),
+    ("e (开启高度):", entry_e := ttk.Entry(input_fields_frame, style="White.TEntry"))
+]
+
+for idx, (label_text, entry) in enumerate(fields,start=1):
+    ttk.Label(input_fields_frame, text=label_text).grid(row=idx, column=0, sticky="w", pady=5)
+    entry.grid(row=idx, column=1, sticky="ew", pady=5)
+    entry.config(state="disabled")
+
+calculate_btn = CanvasButton(input_fields_frame, text="开始计算", command=calculate,
+                             width=360, height=45, bg_color="#2A73FF")
+calculate_btn.grid(row=6, column=0,columnspan=2, pady=20)
+
+Discharge_flow_down_the_hole = tk.Text(input_fields_frame, wrap=tk.WORD, font=("Consolas", 20), bg="#F0F0F0",height=2,width=10)
+Discharge_flow_down_the_hole.grid(row=7, column=0,columnspan=2, sticky="nsew", padx=(0, 10))
+Discharge_flow_down_the_hole.tag_configure('highlight', font=("黑体", 20, "bold"), foreground="#2A73FF")
+
+# ============ 第三行（row 2） ============
+
+# 结果显示区：放在第三行第三列（col 2），内部将 flow_text_widget 与 result_text_widget 改为左右排列
+result_frame = ttk.Frame(main_frame, style="Card.TFrame", padding=15)
+result_frame.grid(row=2, column=2, sticky="nsew", pady=10, padx=10)
+result_frame.columnconfigure(0, weight=1)
+result_frame.columnconfigure(1, weight=1)
+result_frame.rowconfigure(1, weight=1)
+
+flow_label = ttk.Label(result_frame, text="流量计算结果", font=("微软雅黑", 12, "bold"))
+flow_label.grid(row=0, column=0, sticky="ew", pady=(5, 2))
+
+flow_text_widget = tk.Text(result_frame, wrap=tk.WORD, font=("Consolas", 10), bg="#F0F0F0",height=5,width=5)
+flow_text_widget.grid(row=1, column=0, sticky="nsew", padx=(0, 10))
+flow_text_widget.tag_configure('highlight', font=("黑体", 10, "bold"), foreground="#2A73FF")
+
+result_label = ttk.Label(result_frame, text="详细计算结果", font=("微软雅黑", 12, "bold"))
+result_label.grid(row=0, column=1, sticky="ew", pady=(5, 2))
+
+result_text_widget = tk.Text(result_frame, wrap=tk.WORD, font=("Consolas", 10), bg="#F0F0F0",height=5,width=5)
+result_text_widget.grid(row=1, column=1, sticky="nsew")
+result_text_widget.tag_configure('highlight', font=("黑体", 10, "bold"), foreground="#2A73FF")
+
+flow_text_widget.bind("<Button-1>", disable_selection)  # 禁止鼠标点击
+flow_text_widget.bind("<B1-Motion>", disable_selection)  # 禁止鼠标拖动选中
+flow_text_widget.bind("<Control-a>", disable_selection)  # 禁止 Ctrl + A 选中全部
+flow_text_widget.bind("<Key>", disable_selection)  # 禁止键盘输入
+
+result_text_widget.bind("<Button-1>", disable_selection)  # 禁止鼠标点击
+result_text_widget.bind("<B1-Motion>", disable_selection)  # 禁止鼠标拖动选中
+result_text_widget.bind("<Control-a>", disable_selection)  # 禁止 Ctrl + A 选中全部
+result_text_widget.bind("<Key>", disable_selection)  # 禁止键盘输入
+
+footer_label = ttk.Label(root, text="版权所有 © disminder", font=("Arial", 8))
+footer_label.place(relx=1.0, rely=1.0, anchor="se")
 
 root.mainloop()
