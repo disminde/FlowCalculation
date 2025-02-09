@@ -497,7 +497,6 @@ file_combobox.bind("<<ComboboxSelected>>", lambda e: on_file_select(file_combobo
 
 ttk.Label(config_input_frame, text="当前配置详情", font=("Segoe UI", 12, "bold")).grid(row=1, column=0, columnspan=2, sticky="w", pady=5)
 
-
 config_text = tk.Text(config_input_frame, wrap=tk.WORD, height=25, font=("Consolas", 9), bg="#F0F0F0",width=2)
 config_text.grid(row=2, column=0, columnspan=2, sticky="nsew")
 config_text.insert(tk.END, "请选择配置文件查看详细信息")
@@ -517,26 +516,98 @@ style = ttk.Style()
 style.configure("White.TEntry", fieldbackground="white")
 
 # 输入字段
-fields = [
-    ("H1 (上游水头):", entry_H1 := ttk.Entry(input_fields_frame, style="White.TEntry")),
-    ("H2 (下游水头):", entry_H2 := ttk.Entry(input_fields_frame, style="White.TEntry")),
-    ("Qt (调试目标):", entry_Qt := ttk.Entry(input_fields_frame, style="White.TEntry")),
-    ("n (开启孔数):", entry_n := ttk.Entry(input_fields_frame, style="White.TEntry")),
-    ("e (开启高度):", entry_e := ttk.Entry(input_fields_frame, style="White.TEntry"))
-]
 
-for idx, (label_text, entry) in enumerate(fields,start=1):
-    ttk.Label(input_fields_frame, text=label_text).grid(row=idx, column=0, sticky="w", pady=5)
-    entry.grid(row=idx, column=1, sticky="ew", pady=5)
-    entry.config(state="disabled")
+entry_H1 = ttk.Entry(input_fields_frame, style="White.TEntry")
+entry_H2 = ttk.Entry(input_fields_frame, style="White.TEntry")
+entry_Qt = ttk.Entry(input_fields_frame, style="White.TEntry")
+entry_n = ttk.Entry(input_fields_frame, style="White.TEntry")
+entry_e = ttk.Entry(input_fields_frame, style="White.TEntry")
 
-calculate_btn = CanvasButton(input_fields_frame, text="开始计算", command=calculate,
+# 使用一个行号计数器来依次排布各组件
+current_row = 1
+
+# H1 (上游水头)
+ttk.Label(input_fields_frame, text="H1 (上游水头):").grid(row=current_row, column=0, sticky="w", pady=5)
+entry_H1.grid(row=current_row, column=1, sticky="ew", pady=5)
+entry_H1.config(state="disabled")
+current_row += 1
+
+# H2 (下游水头)
+ttk.Label(input_fields_frame, text="H2 (下游水头):").grid(row=current_row, column=0, sticky="w", pady=5)
+entry_H2.grid(row=current_row, column=1, sticky="ew", pady=5)
+entry_H2.config(state="disabled")
+current_row += 1
+
+# 在 Qt 输入栏上方添加注释 "输入预期流量" 及一条横线分割
+ttk.Label(input_fields_frame,
+          text="输入预期流量",
+          font=("Arial", 10, "italic"),
+          foreground="gray").grid(row=current_row, column=0, columnspan=2, sticky="w", pady=(10, 0))
+current_row += 1
+ttk.Separator(input_fields_frame, orient="horizontal").grid(row=current_row, column=0, columnspan=2, sticky="ew", pady=(0, 10))
+current_row += 1
+
+# Qt (调试目标)
+ttk.Label(input_fields_frame, text="Qt (调试目标):").grid(row=current_row, column=0, sticky="w", pady=5)
+entry_Qt.grid(row=current_row, column=1, sticky="ew", pady=5)
+entry_Qt.config(state="disabled")
+current_row += 1
+
+# 在 n 和 e 输入栏上方添加注释 "输入参数进行计算，可尝试不同组合" 及横线分割
+ttk.Label(input_fields_frame,
+          text="输入参数进行计算，可尝试不同组合",
+          font=("Arial", 10, "italic"),
+          foreground="gray").grid(row=current_row, column=0, columnspan=2, sticky="w", pady=(10, 0))
+current_row += 1
+ttk.Separator(input_fields_frame, orient="horizontal").grid(row=current_row, column=0, columnspan=2, sticky="ew", pady=(0, 10))
+current_row += 1
+
+# n (开启孔数)
+ttk.Label(input_fields_frame, text="n (开启孔数):").grid(row=current_row, column=0, sticky="w", pady=5)
+entry_n.grid(row=current_row, column=1, sticky="ew", pady=5)
+entry_n.config(state="disabled")
+current_row += 1
+
+# e (开启高度)
+ttk.Label(input_fields_frame, text="e (开启高度):").grid(row=current_row, column=0, sticky="w", pady=5)
+entry_e.grid(row=current_row, column=1, sticky="ew", pady=5)
+entry_e.config(state="disabled")
+current_row += 1
+
+# 开始计算按钮
+calculate_btn = CanvasButton(input_fields_frame, text="开始试算", command=calculate,
                              width=360, height=45, bg_color="#2A73FF")
-calculate_btn.grid(row=6, column=0,columnspan=2, pady=20)
+calculate_btn.grid(row=current_row, column=0, columnspan=2, pady=20)
+current_row += 1
 
-Discharge_flow_down_the_hole = tk.Text(input_fields_frame, wrap=tk.WORD, font=("Consolas", 20), bg="#F0F0F0",height=2,width=10)
-Discharge_flow_down_the_hole.grid(row=7, column=0,columnspan=2, sticky="nsew", padx=(0, 10))
+# 显示计算结果的文本框
+Discharge_flow_down_the_hole = tk.Text(input_fields_frame, wrap=tk.WORD,
+                                         font=("Consolas", 20), bg="#F0F0F0",
+                                         height=2, width=10)
+Discharge_flow_down_the_hole.grid(row=current_row, column=0, columnspan=2, sticky="nsew", padx=(0, 10))
 Discharge_flow_down_the_hole.tag_configure('highlight', font=("黑体", 20, "bold"), foreground="#2A73FF")
+
+
+# fields = [
+#     ("H1 (上游水头):", entry_H1 := ttk.Entry(input_fields_frame, style="White.TEntry")),
+#     ("H2 (下游水头):", entry_H2 := ttk.Entry(input_fields_frame, style="White.TEntry")),
+#     ("Qt (调试目标):", entry_Qt := ttk.Entry(input_fields_frame, style="White.TEntry")),
+#     ("n (开启孔数):", entry_n := ttk.Entry(input_fields_frame, style="White.TEntry")),
+#     ("e (开启高度):", entry_e := ttk.Entry(input_fields_frame, style="White.TEntry"))
+# ]
+#
+# for idx, (label_text, entry) in enumerate(fields,start=1):
+#     ttk.Label(input_fields_frame, text=label_text).grid(row=idx, column=0, sticky="w", pady=5)
+#     entry.grid(row=idx, column=1, sticky="ew", pady=5)
+#     entry.config(state="disabled")
+#
+# calculate_btn = CanvasButton(input_fields_frame, text="开始计算", command=calculate,
+#                              width=360, height=45, bg_color="#2A73FF")
+# calculate_btn.grid(row=6, column=0,columnspan=2, pady=20)
+#
+# Discharge_flow_down_the_hole = tk.Text(input_fields_frame, wrap=tk.WORD, font=("Consolas", 20), bg="#F0F0F0",height=2,width=10)
+# Discharge_flow_down_the_hole.grid(row=7, column=0,columnspan=2, sticky="nsew", padx=(0, 10))
+# Discharge_flow_down_the_hole.tag_configure('highlight', font=("黑体", 20, "bold"), foreground="#2A73FF")
 
 # ============ 第三行（row 2） ============
 
